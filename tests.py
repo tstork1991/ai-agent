@@ -1,26 +1,26 @@
-"""
-Top-level functional checks for get_files_info().
-Run manually via:  uv run tests.py
-"""
-from functions.get_files_info import get_files_info
+# tests.py  (project root)
+from functions.write_file import write_file
 
-def separator(title: str) -> None:
-    print("\n" + title)
-    print("-" * len(title))
+def run_case(title, wd, path, data):
+    print(f"\n{title}\n" + "-" * len(title))
+    print(write_file(wd, path, data))
 
 if __name__ == "__main__":
-    # 1. Current directory (calculator/.)
-    separator("Result for current directory:")
-    print(get_files_info("calculator", "."))
-
-    # 2. calculator/pkg
-    separator("Result for 'pkg' directory:")
-    print(get_files_info("calculator", "pkg"))
-
-    # 3. Absolute path outside working dir
-    separator("Result for '/bin' directory:")
-    print(get_files_info("calculator", "/bin"))
-
-    # 4. Relative path that escapes upward
-    separator("Result for '../' directory:")
-    print(get_files_info("calculator", "../"))
+    run_case(
+        'overwrite existing lorem.txt',
+        "calculator",
+        "lorem.txt",
+        "wait, this isn't lorem ipsum",
+    )
+    run_case(
+        "create new pkg/morelorem.txt",
+        "calculator",
+        "pkg/morelorem.txt",
+        "lorem ipsum dolor sit amet",
+    )
+    run_case(
+        "outside working dir (/tmp/temp.txt)",
+        "calculator",
+        "/tmp/temp.txt",
+        "this should not be allowed",
+    )
