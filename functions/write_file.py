@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 
+
 def write_file(working_directory: str, file_path: str, content: str) -> str:
     """
     Safely write *content* to *file_path* as long as the path stays inside
@@ -12,6 +13,13 @@ def write_file(working_directory: str, file_path: str, content: str) -> str:
         work_abs = os.path.abspath(working_directory)
         target_abs = os.path.abspath(os.path.join(work_abs, file_path))
 
+     # ── EXTRA SAFETY: only allow writes under calculator/pkg ──
+        safe_root = os.path.abspath(os.path.join(work_abs, "pkg"))
+        if not target_abs.startswith(safe_root):
+            return (
+                f'Error: For safety, may only write inside "pkg" '
+                f'(got "{file_path}")'
+            )
         # Guard-rail: must stay inside working_directory
         if not target_abs.startswith(work_abs):
             return (

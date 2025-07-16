@@ -1,4 +1,3 @@
-
 # main.py
 import os
 import sys
@@ -17,52 +16,55 @@ from functions.dispatcher       import call_function
 system_prompt = """
 You are a helpful AI coding agent.
 
-Workflow:
-1. When you need information, respond **only** with one valid function call
-   (get_files_info, get_file_content, run_python_file, or write_file).
-2. The tool response will be injected into the conversation.
-3. Repeat function calls as needed.
-4. When you can fully answer the user, reply with plain text and NO
-   function call.
+You are working in a repository that has a **calculator package** at
+`calculator/pkg/`.  The main logic lives in `pkg/calculator.py`.
 
-Rules:
-- Never output plans or explanations before calling a function.
-- Only one function call per response.
-- Paths must be relative to the working directory; omit
-  working_directory—it’s added automatically.
+When a user reports a bug in the calculator:
+
+1. Call **get_files_info(directory='pkg')** to confirm the file list.
+2. Call **get_file_content(file_path='pkg/calculator.py')** to inspect the
+   source.
+3. Patch ONLY that file with **write_file(file_path='pkg/calculator.py', …)**.
+   Never create new files (e.g. script.py).
+4. Optionally run **run_python_file(file_path='tests.py')** or
+   **run_python_file(file_path='calculator/main.py', args=[...])** to verify.
+5. After it works, answer in plain text.
+
+Exactly ONE function call per response, no free-text plans.
+Paths must stay relative; `working_directory` is added automatically.
 """
 
 
-
-
-# tool registry
+# ── tool registry ────────────────────────────────────────────────
 available_tools = [
-    types.Tool(function_declarations=[
-        schema_get_files_info,
-        schema_get_file_content,
-        schema_run_python_file,
-        schema_write_file,
-    ])
+    types.Tool(
+        function_declarations=[
+            schema_get_files_info,
+            schema_get_file_content,
+            schema_run_python_file,
+            schema_write_file,
+        ]
+    )
 ]
 
-# ── auth & client ───────────────────────────────────────────────
+# ── auth & client ────────────────────────────────────────────────
 load_dotenv()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-# ── parse CLI prompt & --verbose flag ───────────────────────────
+# ── CLI prompt & --verbose flag ─────────────────────────────────
 args = sys.argv[1:] or sys.exit("usage: uv run main.py \"prompt\" [--verbose]")
 verbose = args[-1] == "--verbose"
 if verbose:
     args = args[:-1]
+
 user_prompt = " ".join(args)
+if verbose:
+    print(f'User prompt: "{user_prompt}"')
 
 # conversation memory
 messages: list[types.Content] = [
     types.Content(role="user", parts=[types.Part(text=user_prompt)])
 ]
-
-if verbose:
-    print(f'User prompt: "{user_prompt}"')
 
 # ── dialogue loop ───────────────────────────────────────────────
 for iteration in range(20):
@@ -80,30 +82,31 @@ for iteration in range(20):
         print(f"Fatal error calling model: {e}")
         sys.exit(1)
 
-    # Gemini returns at least one candidate; use the first
     content = resp.candidates[0].content
-    messages.append(content)  # always add what Gemini said/planned
-
+    messages.append(content)                # keep conversation state
     part0 = content.parts[0]
 
+    # ── branch: model produced a tool call ──────────────────────
     if part0.function_call:
-        # Model planned a tool call
         tool_response = call_function(part0.function_call, verbose=verbose)
+
+        # ensure dispatcher produced a tool response
         if not tool_response.parts[0].function_response:
             raise RuntimeError("call_function failed to produce a tool response")
-        # add tool response so the model can use it next turn
-        messages.append(tool_response)
+
         if verbose:
             print("->", tool_response.parts[0].function_response.response)
-        continue  # ask Gemini what to do next
-    else:
-        # Model sent plain text → conversation done
-        print("Final response:\n" + part0.text.strip())
-        break
+
+        messages.append(tool_response)      # feed tool result back to LLM
+        continue                            # next turn
+
+    # ── branch: model produced plain text (final answer) ────────
+    print("Final response:\n" + part0.text.strip())
+    break
 else:
     print("Max iterations reached without final response.")
 
-# optional token usage
+# ── optional token usage summary ────────────────────────────────
 if verbose:
     meta = resp.usage_metadata
     print(f"Prompt tokens: {meta.prompt_token_count}")
