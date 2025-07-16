@@ -35,3 +35,17 @@ def write_file(working_directory: str, file_path: str, content: str) -> str:
 
     except Exception as exc:
         return f"Error: {exc}"
+
+from google.genai import types
+
+schema_write_file = types.FunctionDeclaration(
+    name="write_file",
+    description="Write or overwrite a text file with the given content.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(type=types.Type.STRING),
+            "content":   types.Schema(type=types.Type.STRING),
+        },
+    ),
+)

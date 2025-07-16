@@ -6,7 +6,7 @@ working directory.  All errors are returned as strings that start with
 from __future__ import annotations
 import os
 from typing import Optional
-
+from google.genai import types
 
 def get_files_info(working_directory: str, directory: Optional[str] = None) -> str:
     """
@@ -56,3 +56,17 @@ def get_files_info(working_directory: str, directory: Optional[str] = None) -> s
 
     except Exception as exc:  # catch *all* unexpected issues
         return f"Error: {exc}"
+
+schema_get_files_info = types.FunctionDeclaration(
+    name="get_files_info",
+    description="Lists files in the specified directory along with their sizes, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "directory": types.Schema(
+                type=types.Type.STRING,
+                description="The directory to list files from, relative to the working directory. If not provided, lists files in the working directory itself.",
+            ),
+        },
+    ),
+)
